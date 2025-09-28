@@ -1,1 +1,0 @@
-# gorq_hackathon
