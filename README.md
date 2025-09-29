@@ -1,4 +1,4 @@
-# Smart Pharmacy Inventory Agent (Hackathon-Ready)
+# Smart Pharmacy Inventory Agent
 
 An end-to-end **prototype** to predict demand, prevent stockouts, reduce expiry waste, and optimize urgent routes for medicine replenishment.
 

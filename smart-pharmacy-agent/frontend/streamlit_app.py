@@ -13,6 +13,7 @@ from backend.services.groq_agent import forecast_with_groq, explain_reorder, cha
 from backend.services.reorder import reorder_point, reorder_suggestion
 from backend.services.redistribution import near_expiry_redistribution
 from backend.services.routing import nearest_neighbor_route, build_stops_from_moves
+from backend.services.voice import transcribe_audio_bytes, speak_text_to_audio_bytes, WHISPER_LANG
 
 DATA_DIR = Path(__file__).resolve().parents[1] / 'data'
 
@@ -103,126 +104,71 @@ with tab4:
 # ------------------ TAB 5 ------------------
 with tab5:
     st.subheader('💬 Chat with Pharmacy Assistant')
-    
+
     if 'messages' not in st.session_state:
         st.session_state.messages = []
-    
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-    
-    if prompt := st.chat_input("Ask about inventory, forecasts, reorders, redistribution, or routes..."):
+
+    # Voice recorder integration
+    st.caption("🎙️ Record your question (voice input)")
+    try:
+        from streamlit_mic_recorder import mic_recorder
+        audio = mic_recorder(start_prompt="Start recording", stop_prompt="Stop", just_once=False, use_container_width=True)
+    except Exception:
+        audio = None
+        st.info("Install `streamlit-mic-recorder` to use mic input.")
+
+    if audio and isinstance(audio, dict) and audio.get("bytes"):
+        st.audio(audio["bytes"], format="audio/wav")
+        with st.spinner("Transcribing…"):
+            try:
+                text_from_voice = transcribe_audio_bytes(audio["bytes"], language=WHISPER_LANG)
+                if text_from_voice:
+                    st.success(f"Transcribed: {text_from_voice}")
+                    st.session_state.messages.append({"role": "user", "content": text_from_voice})
+
+                    # Get assistant reply immediately
+                    with st.chat_message("assistant"):
+                        low_stock_items = inv[inv['stock'] < (inv['avg_daily_demand'] * 7)]['drug'].tolist()
+                        context_summary = f"Inventory highlights: Low stock (<1 week) for: {', '.join(low_stock_items) if low_stock_items else 'None'}\nAvailable centers: {', '.join(centers['name'].tolist())}\nUse this data to answer queries about stock, forecasts, etc."
+
+                        try:
+                            with st.spinner('Generating response...'):
+                                response = chat_with_groq(text_from_voice, context_summary)
+                            st.markdown(response)
+                            st.session_state.messages.append({"role": "assistant", "content": response})
+
+                            # Auto speak response
+                            audio_bytes = speak_text_to_audio_bytes(response, lang="en")
+                            if audio_bytes:
+                                st.audio(audio_bytes, format="audio/mp3")
+
+                        except Exception as e:
+                            error_msg = f"Error generating response: {str(e)}"
+                            st.error(error_msg)
+                            st.session_state.messages.append({"role": "assistant", "content": error_msg})
+            except Exception as e:
+                st.error(f"Transcription error: {e}")
+
+    # Typed chat fallback
+    if prompt := st.chat_input("Ask about inventory, forecasts, reorders, redistribution, or routes."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-        
+
         with st.chat_message("assistant"):
             low_stock_items = inv[inv['stock'] < (inv['avg_daily_demand'] * 7)]['drug'].tolist()
             context_summary = f"Inventory highlights: Low stock (<1 week) for: {', '.join(low_stock_items) if low_stock_items else 'None'}\nAvailable centers: {', '.join(centers['name'].tolist())}\nUse this data to answer queries about stock, forecasts, etc."
-            
+
             try:
                 with st.spinner('Generating response...'):
                     response = chat_with_groq(prompt, context_summary)
                 st.markdown(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
             except Exception as e:
-                error_msg = f"Error generating response: {str(e)}. Check Groq API key, internet, or try again."
+                error_msg = f"Error generating response: {str(e)}"
                 st.error(error_msg)
                 st.session_state.messages.append({"role": "assistant", "content": error_msg})
-    
-    # ---- Voice + TTS combined ----
-    voice_and_tts_html = """
-    <div id="voice-container" style="text-align: center; margin: 20px 0;">
-        <button id="mic-btn" style="font-size: 24px; padding: 10px; background: #ff6b6b; color: white; border: none; border-radius: 50%; cursor: pointer;">🎤</button>
-        <div id="transcript" style="margin-top: 10px; padding: 10px; border: 1px solid #ddd; min-height: 20px; word-wrap: break-word;"></div>
-    </div>
-
-    <button id="tts-btn" style="font-size: 18px; padding: 8px 16px; background: #2ed573; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;" onclick="speakLastResponse()">
-    🔊 Speak Last Response
-    </button>
-
-    <script>
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'en-US';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        const micBtn = document.getElementById('mic-btn');
-        const transcriptDiv = document.getElementById('transcript');
-
-        micBtn.onclick = () => {
-            recognition.start();
-            micBtn.textContent = '🔴 Listening...';
-            micBtn.style.background = '#ff4757';
-        };
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            transcriptDiv.textContent = transcript;
-            micBtn.textContent = '🎤';
-            micBtn.style.background = '#ff6b6b';
-
-            const chatInput = document.querySelector('section[data-testid="stChatInput"] input');
-            if (chatInput) {
-                chatInput.value = transcript;
-                chatInput.focus();
-                chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-                const enterEvent = new KeyboardEvent('keydown', {
-                    bubbles: true,
-                    cancelable: true,
-                    key: 'Enter',
-                    code: 'Enter'
-                });
-                chatInput.dispatchEvent(enterEvent);
-            }
-        };
-
-        recognition.onspeechend = () => {
-            recognition.stop();
-            micBtn.textContent = '🎤';
-            micBtn.style.background = '#ff6b6b';
-        };
-
-        recognition.onerror = (event) => {
-            let errorMsg = 'Speech recognition error: ';
-            switch(event.error) {
-                case 'network': errorMsg += 'Network issue.'; break;
-                case 'not-allowed': errorMsg += 'Microphone access denied.'; break;
-                case 'no-speech': errorMsg += 'No speech detected.'; break;
-                default: errorMsg += event.error;
-            }
-            transcriptDiv.textContent = errorMsg;
-            micBtn.textContent = '🎤';
-            micBtn.style.background = '#ff6b6b';
-        };
-    } else {
-        document.getElementById('transcript').textContent = 'Speech recognition not supported in this browser.';
-    }
-
-    function speakLastResponse() {
-      try {
-        const chatMessages = document.querySelectorAll('[data-testid="stChatMessage"]');
-        let lastText = 'No response to speak';
-        for (let i = chatMessages.length - 1; i >= 0; i--) {
-          const roleAvatar = chatMessages[i].querySelector('[data-testid="stChatMessageAvatar"]');
-          if (roleAvatar && roleAvatar.textContent.toLowerCase().includes("assistant")) {
-            const markdown = chatMessages[i].querySelector('[data-testid="stMarkdown"]');
-            if (markdown) {
-              lastText = markdown.textContent.trim();
-              break;
-            }
-          }
-        }
-        const utterance = new SpeechSynthesisUtterance(lastText.substring(0, 500));
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        speechSynthesis.speak(utterance);
-      } catch (e) {
-        alert('TTS failed: ' + e.message);
-      }
-    }
-    </script>
-    """
-
-    st.components.v1.html(voice_and_tts_html, height=280)
