@@ -77,6 +77,50 @@ This build can use **Groq LLM** for forecasting and explanations.
 
 ### Use in Streamlit
 - In the **Forecast & Reorder** tab, enable **"Use Groq LLM for forecasting"** (on by default).
+<p align="center">
+  <img src="smart-pharmacy-agent/docs/images/dashboard.png" width="700" alt="Streamlit Dashboard">
+  <br>
+  <em>Main Streamlit dashboard with tabs</em>
+</p>
+
+---
+
+## UI Screenshots
+
+<table>
+  <tr>
+    <td><img src="smart-pharmacy-agent/docs/images/dashboard.png" width="400" alt="Inventory"></td>
+    <td><img src="smart-pharmacy-agent/docs/images/forecast.png" width="400" alt="Forecast"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>📦 Inventory Snapshot</em></td>
+    <td align="center"><em>📊 Forecast & Reorder</em></td>
+  </tr>
+  <tr>
+    <td><img src="smart-pharmacy-agent/docs/images/redistribution.png" width="400" alt="Redistribution"></td>
+    <td><img src="smart-pharmacy-agent/docs/images/routes.png" width="400" alt="Routes"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>♻️ Redistribution Moves</em></td>
+    <td align="center"><em>🗺️ Route Optimization</em></td>
+  </tr>
+</table>
+
+---
+
+## Voice & AI Features
+
+<p align="center">
+  <img src="smart-pharmacy-agent/docs/images/chat_interface.png" width="500" alt="Voice Demo">
+  <br>
+  <em>🎙️ Voice input and 🔊 TTS response</em>
+</p>
+
+<p align="center">
+  <img src="smart-pharmacy-agent/docs/images/chat_interface_2.png" width="600" alt="Groq Forecast">
+  <br>
+  <em>🤖 Groq LLM-powered forecast explanations</em>
+</p>
 
 ### API Endpoint
 ```
