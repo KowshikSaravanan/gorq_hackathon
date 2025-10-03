@@ -39,5 +39,5 @@ if __name__ == "__main__":
     moves, route, dist = test_redistribution_and_routing(use_groq=False)
     print(f"\nTest completed. Moves: {len(moves)}, Route length: {len(route) if route else 0}, Distance: {dist}")
     
-    # Optionally run with Groq for LLM forecasts
-    # moves_groq, route_groq, dist_groq = test_redistribution_and_routing(use_groq=True)
+    # Run with Groq for LLM forecasts
+    moves_groq, route_groq, dist_groq = test_redistribution_and_routing(use_groq=True)
