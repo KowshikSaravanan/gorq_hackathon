@@ -101,6 +101,77 @@ with tab4:
         st.write('Visit order:', ' → '.join(order))
         st.metric('Total distance (km)', f'{dist:.2f}')
 
+        # Normalize types
+        if hasattr(depot, "to_dict"):  
+            depot = depot.to_dict()
+        elif isinstance(depot, tuple):
+            # depot is (lat, lon) - convert to proper dict
+            if len(depot) == 2:
+                depot = {'lat': depot[0], 'lon': depot[1]}
+            else:
+                st.error(f"Unexpected depot tuple format: {depot}")
+                st.stop()
+
+        fixed_stops = []
+        for s in stops:
+            if hasattr(s, "to_dict"):
+                fixed_stops.append(s.to_dict())
+            elif isinstance(s, tuple):
+                # s is (center_id, lat, lon) - convert to proper dict
+                if len(s) == 3:
+                    fixed_stops.append({'center_id': s[0], 'lat': s[1], 'lon': s[2]})
+                else:
+                    st.error(f"Unexpected stop tuple format: {s}")
+                    continue
+            else:
+                fixed_stops.append(s)
+        stops = fixed_stops
+
+        # --- Detect lat/lon columns ---
+        def detect_lat_lon(df):
+            lat_candidates = [c for c in df.columns if c.lower().startswith("lat") or c.lower()=="x"]
+            lon_candidates = [c for c in df.columns if c.lower().startswith("lon") or c.lower()=="y"]
+            if lat_candidates and lon_candidates:
+                return lat_candidates[0], lon_candidates[0]
+            return None, None
+
+        lat_col, lon_col = detect_lat_lon(centers)
+
+        st.markdown("### 🗺 Route Map")
+        try:
+            import folium
+            from streamlit_folium import st_folium
+
+            if lat_col and lon_col:
+                m = folium.Map(location=[depot[lat_col], depot[lon_col]], zoom_start=8)
+
+                # Depot marker
+                folium.Marker(
+                    [depot[lat_col], depot[lon_col]],
+                    popup=f"Depot {depot_id}",
+                    icon=folium.Icon(color="red", icon="home")
+                ).add_to(m)
+
+                # Stops
+                for stop in stops:
+                    folium.Marker(
+                        [stop[lat_col], stop[lon_col]],
+                        popup=f"Center {stop.get('center_id','?')}",
+                        icon=folium.Icon(color="blue", icon="medkit")
+                    ).add_to(m)
+
+                # Route line
+                route_coords = [(depot[lat_col], depot[lon_col])] + [
+                    (s[lat_col], s[lon_col]) for s in stops
+                ]
+                folium.PolyLine(route_coords, color="green", weight=3, opacity=0.8).add_to(m)
+
+                st_folium(m, width=800, height=500)
+            else:
+                st.warning("⚠️ Could not detect latitude/longitude columns in centers.csv")
+        except Exception as e:
+            st.error(f"Map rendering failed: {e}")
+
 # ------------------ TAB 5 ------------------
 with tab5:
     st.subheader('💬 Chat with Pharmacy Assistant')
