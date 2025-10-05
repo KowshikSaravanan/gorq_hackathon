@@ -45,7 +45,17 @@ To test the end-to-end redistribution and route optimization features:
    source .venv/bin/activate
    python backend/services/test_features.py
    ```
-   Expected output: Suggested moves DataFrame, optimized route order, and total distance (e.g., ~1500 km with 5 centers).
+    - Forecasts future demand using either simple or Groq LLM-based forecasting
+    - Suggests redistribution moves for near-expiry drugs
+    - Builds and optimizes delivery routes using nearest-neighbor logic
+    - Expected output: Suggested moves DataFrame, optimized route order, and total distance (e.g., ~1500 km with 5 centers).
+
+      <p align="center">
+      <em> TEST response </em>
+    <img src="smart-pharmacy-agent/docs/images/testing_features.png" width="500">
+    <br>
+  </p>
+
 
 2. **With Groq LLM forecasts** (uncomment the last line in test_features.py for advanced testing):
    - Ensure GROQ_API_KEY is set.
